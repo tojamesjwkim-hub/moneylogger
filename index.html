@@ -154,6 +154,8 @@
       <label>Or image URL</label>
       <input type="text" id="bgUrl" placeholder="https://images.unsplash.com/...">
       <button class="rndbtn" id="rndImg">random Unsplash image</button>
+      <button class="rndbtn" id="uploadImg">upload image from device</button>
+      <input type="file" id="bgFile" accept="image/*" style="display:none">
       <label>Opacity <span id="opVal">12%</span></label>
       <input type="range" id="bgOpacity" min="0" max="100" value="12">
       <div class="note-sm">Image URLs must be direct links (images.unsplash.com/... or ending in .jpg/.png). A regular unsplash.com page link won't show.</div>
@@ -217,19 +219,42 @@
   var opVal = document.getElementById('opVal');
   function openPanel() {
     bgColor.value = (bg.color && bg.color[0]==='#') ? bg.color : '#ffffff';
-    bgUrl.value = bg.url || '';
+    bgUrl.value = (bg.url && bg.url.indexOf('data:')===0) ? '(uploaded image)' : (bg.url || '');
     bgOpacity.value = bg.opacity; opVal.textContent = bg.opacity + '%';
     panel.classList.add('open');
   }
   document.getElementById('gear').addEventListener('click', openPanel);
   bgColor.addEventListener('input', function(){ bg.type='color'; bg.color=bgColor.value; bg.url=''; bgUrl.value=''; applyBg(); });
-  bgUrl.addEventListener('input', function(){ if (bgUrl.value.trim()) { bg.type='image'; bg.url=bgUrl.value.trim(); } applyBg(); });
+  bgUrl.addEventListener('input', function(){ var v=bgUrl.value.trim(); if (v && v!=='(uploaded image)') { bg.type='image'; bg.url=v; } applyBg(); });
   bgOpacity.addEventListener('input', function(){ bg.opacity=parseInt(bgOpacity.value); opVal.textContent=bg.opacity+'%'; applyBg(); });
   document.getElementById('rndImg').addEventListener('click', function(){
     var topics = ['nature','water','paper','sky','texture','minimal','pastel'];
     var t = topics[Math.floor(Math.random()*topics.length)];
     bg.type='image'; bg.url='https://source.unsplash.com/random/800x1200/?'+t+'&sig='+Date.now();
     bgUrl.value=bg.url; applyBg();
+  });
+  document.getElementById('uploadImg').addEventListener('click', function(){ document.getElementById('bgFile').click(); });
+  document.getElementById('bgFile').addEventListener('change', function(e){
+    var f=e.target.files[0]; if(!f) return;
+    var reader=new FileReader();
+    reader.onload=function(){
+      var img=new Image();
+      img.onload=function(){
+        var maxW=720, scale=Math.min(1, maxW/img.width);
+        var w=Math.round(img.width*scale), h=Math.round(img.height*scale);
+        var cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+        cv.getContext('2d').drawImage(img,0,0,w,h);
+        var dataUrl;
+        try { dataUrl=cv.toDataURL('image/jpeg',0.7); } catch(err){ alert('Could not process that image.'); return; }
+        bg.type='image'; bg.url=dataUrl; bgUrl.value='(uploaded image)';
+        try { saveJSON('bg', bg); } catch(err){ alert('Image too large to save. Try a smaller photo.'); }
+        applyBg();
+      };
+      img.onerror=function(){ alert('That file is not a readable image.'); };
+      img.src=String(reader.result);
+    };
+    reader.readAsDataURL(f);
+    e.target.value='';
   });
   var swColors = ['#ffd6d6','#ffe9c7','#fff7c7','#d6f5d6','#d6ecff','#e3d6ff','#ffd6f0','#e8e8e8'];
   var swEl = document.getElementById('swatches');
